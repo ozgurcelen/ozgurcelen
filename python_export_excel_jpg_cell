@@ -1,0 +1,70 @@
+import os
+import win32com.client as win32
+import openpyxl
+
+def send_mail(sheet_name, cell_range, email_to, email_cc, subject, workbook_path):
+    # Setup Outlook application
+    outlook = win32.Dispatch('outlook.application')
+    mail = outlook.CreateItem(0)
+
+    # Create temporary file path
+    temp_file_path = os.path.join(os.environ['TEMP'], 'DashboardFile.jpg')
+    
+    # Create JPG from Excel
+    create_jpg(sheet_name, cell_range, temp_file_path, workbook_path)
+
+    # Compose the email
+    mail.Subject = subject
+    body = (
+        "<span LANG=EN>"
+        "<p class=style2><span LANG=EN><font FACE=Calibri SIZE=3>"
+        "Hello,<br><br>The weekly dashboard is available <br>Find below an overview :<br>"
+        f"<br><B>WEEKLY REPORT:</B><br>"
+        f"<img src='cid:DashboardFile.jpg' width=- height=-><br>"
+        "<br>Best Regards,<br>Ed</font></span>"
+    )
+    mail.HTMLBody = body
+
+    mail.To = email_to
+    mail.CC = email_cc
+
+    # Attach the JPG to the email
+    mail.Attachments.Add(temp_file_path)
+    
+    mail.Display()
+
+def create_jpg(sheet_name, cell_range, file_name, workbook_path):
+    # Load Excel workbook and select the sheet
+    excel = win32.Dispatch('Excel.Application')
+    excel.Visible = False  # Run in the background
+    excel.DisplayAlerts = False  # Disable alerts
+    workbook = excel.Workbooks.Open(workbook_path)  # Specify your workbook
+    sheet = workbook.Worksheets(sheet_name)
+    
+    # Copy the specified range to clipboard
+    rng = sheet.Range(cell_range)
+    rng.CopyPicture()
+    
+    # Create a temporary chart to hold the copied range
+    chart = sheet.ChartObjects().Add(rng.Left, rng.Top, rng.Width, rng.Height).Chart
+    chart.Paste()
+    
+    # Export chart to an image file
+    chart.Export(file_name)
+    
+    # Delete the temporary chart
+    chart.Parent.Delete()
+    
+    # Close Excel
+    workbook.Close(SaveChanges=False)
+    excel.Quit()
+
+if __name__ == "__main__":
+    send_mail(
+        sheet_name='Sheet1',
+        cell_range='A1:F18',
+        email_to='contact1@email.com; contact2@email.com',
+        email_cc='contact3@email.com',
+        subject='My mail auto Object',
+        workbook_path=os.path.join(os.getcwd(), "D:/Works/Excel/veri.xlsx")
+    )
